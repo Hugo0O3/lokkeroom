@@ -6,6 +6,7 @@ import { promisify } from 'util';
 import JWT from 'jsonwebtoken';
 import register from './register.js';
 import login from './login.js';
+import lobby from './lobby.js';
 import path from 'path';
 
 dotenv.config();
@@ -31,6 +32,7 @@ const pool = mariadb.createPool({
 app.use(express.json())
 app.use("/api/register", register(pool))
 app.use("/api/login", login(pool))
+app.use("/api/lobby", lobby(pool))
 
 // app.use((req, res, next) => {
 //     const keyUsed = req.body.key;
@@ -61,6 +63,26 @@ app.get("/api/lobby/:id", async (req, res) => {
 })
 
 app.get("/api/lobby/:id/:id", async (req, res) => {
+    const lobbyId = req.params.id;
+    const messageId = req.params.id
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        const data = await connection.query(`
+            select m.id, m.date_message, m.message, l.name as lobby_name
+            from message m
+            join lobby l on m.lobby_id = l.id
+            where m.id = ?;
+        `, [lobbyId, messageId]);
+        return res.status(200).send(data)
+    } catch (err) {
+        throw err;
+    } finally {
+        if (connection) connection.release();
+    }
+})
+
+app.get("/api/users", async (req, res) => {
     const lobbyId = req.params.id;
     const messageId = req.params.id
     let connection;
