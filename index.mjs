@@ -6,7 +6,7 @@ import { promisify } from 'util';
 import JWT from 'jsonwebtoken';
 import register from './register.js';
 import login from './login.js';
-import lobby from './lobby.js';
+import { messagePosted, createLobby } from './lobby.js';
 import path from 'path';
 
 dotenv.config();
@@ -32,7 +32,8 @@ const pool = mariadb.createPool({
 app.use(express.json())
 app.use("/api/register", register(pool))
 app.use("/api/login", login(pool))
-app.use("/api/lobby", lobby(pool))
+// app.use("/api/lobby", messagePosted(pool))
+app.use("/api/lobby", createLobby(pool))
 
 // app.use((req, res, next) => {
 //     const keyUsed = req.body.key;
