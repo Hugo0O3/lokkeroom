@@ -32,7 +32,7 @@ const pool = mariadb.createPool({
 app.use(express.json())
 app.use("/api/register", register(pool))
 app.use("/api/login", login(pool))
-// app.use("/api/lobby", messagePosted(pool))
+app.use("/api/lobby", messagePosted(pool))
 app.use("/api/lobby", createLobby(pool))
 
 // app.use((req, res, next) => {
@@ -51,8 +51,8 @@ app.get("/api/lobby/:id", async (req, res) => {
         connection = await pool.getConnection();
         const data = await connection.query(`
             select m.id, m.date_message, m.message, l.name as lobby_name
-            from message m
-            join lobby l on m.lobby_id = l.id
+            from messages m
+            join lobbies l on m.lobby_id = l.id
             where l.id = ?;
         `, [lobbyId]);
         return res.status(200).send(data)
