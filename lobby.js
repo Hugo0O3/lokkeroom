@@ -77,3 +77,37 @@ export const createLobby = (pool) => {
     });
     return router
 }
+
+export const addUser = (pool) => {
+    const router = express.Router()
+
+    router.post("/:lobbyId/add-user", jwtToken, async (req, res) => {
+        const { userId } = req.body
+        const lobbyId = req.params.lobbyId
+        const adminId = req.user.id
+        let connection;
+
+        if (!userId) {
+            return res.status(400).json({ erreur: "Il faut l'id." })
+        }
+
+        try {
+            connection = await pool.getConnection();
+
+            const [isUserAdmin] = await connection.query(`select isAdmin from junction_users_lobbies where user_id = ? and lobby_id = ?`, [adminId, lobbyId])
+
+            if (!isUserAdmin || isUserAdmin.isAdmin !== 'true') {
+                return res.status(400).json({ erreur: "Vous n'êtes pas l'admin de cette team! Vous ne pouvez pas ajouter de user." })
+            }
+
+            await connection.query(`insert into junction_users_lobbies (user_id, lobby_id, isAdmin) values (?, ?, ?)`, [userId, lobbyId, 'false'])
+
+            return res.status(200).send({ message: "Le user a été ajouté avec succès au lobby." })
+        } catch (err) {
+            throw err;
+        } finally {
+            if (connection) connection.release();
+        }
+    });
+    return router
+}
