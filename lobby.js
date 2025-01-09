@@ -47,6 +47,28 @@ export const messagePosted = (pool) => {
     return router
 }
 
+export const editMessage = (pool) => {
+    const router = express.Router()
+
+    router.post("/:messageId", jwtToken, async (req, res) => {
+        const { message } = req.body
+        const messageId = req.params.id;
+        const userId = req.user.id
+        let connection;
+        try {
+            connection = await pool.getConnection();
+
+            await connection.query(`insert into messages (message, users_id, lobby_id) values (?, ?, ?)`, [message, userId, lobbyId])
+            return res.status(200).send({ message: "Le message a été posté." })
+        } catch (err) {
+            throw err;
+        } finally {
+            if (connection) connection.release();
+        }
+    });
+    return router
+}
+
 export const createLobby = (pool) => {
     const router = express.Router()
 
@@ -97,12 +119,46 @@ export const addUser = (pool) => {
             const [isUserAdmin] = await connection.query(`select isAdmin from junction_users_lobbies where user_id = ? and lobby_id = ?`, [adminId, lobbyId])
 
             if (!isUserAdmin || isUserAdmin.isAdmin !== 'true') {
-                return res.status(400).json({ erreur: "Vous n'êtes pas l'admin de cette team! Vous ne pouvez pas ajouter de user." })
+                return res.status(400).json({ erreur: "Vous n'êtes pas l'admin de ce lobby! Vous ne pouvez pas ajouter de user." })
             }
 
             await connection.query(`insert into junction_users_lobbies (user_id, lobby_id, isAdmin) values (?, ?, ?)`, [userId, lobbyId, 'false'])
 
             return res.status(200).send({ message: "Le user a été ajouté avec succès au lobby." })
+        } catch (err) {
+            throw err;
+        } finally {
+            if (connection) connection.release();
+        }
+    });
+    return router
+}
+
+export const removeUser = (pool) => {
+    const router = express.Router()
+
+    router.post("/:lobbyId/remove-user", jwtToken, async (req, res) => {
+        const { userId } = req.body
+        const lobbyId = req.params.lobbyId
+        const adminId = req.user.id
+        let connection;
+
+        if (!userId) {
+            return res.status(400).json({ erreur: "Il faut l'id." })
+        }
+
+        try {
+            connection = await pool.getConnection();
+
+            const [isUserAdmin] = await connection.query(`select isAdmin from junction_users_lobbies where user_id = ? and lobby_id = ?`, [adminId, lobbyId])
+
+            if (!isUserAdmin || isUserAdmin.isAdmin !== 'true') {
+                return res.status(400).json({ erreur: "Vous n'êtes pas l'admin de ce lobby! Vous ne pouvez pas ajouter de user." })
+            }
+
+            await connection.query(`delete from junction_users_lobbies where user_id = ? and lobby_id = ?`, [userId, lobbyId])
+
+            return res.status(200).send({ message: "Le user a été supprimé avec succès du lobby." })
         } catch (err) {
             throw err;
         } finally {

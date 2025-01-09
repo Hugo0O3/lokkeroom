@@ -6,7 +6,7 @@ import { promisify } from 'util';
 import jwt from 'jsonwebtoken';
 import register from './register.js';
 import login from './login.js';
-import { messagePosted, createLobby, addUser } from './lobby.js';
+import { messagePosted, createLobby, addUser, removeUser } from './lobby.js';
 import { createTeam, addUserToTeam } from './teams.js'
 import path from 'path';
 
@@ -55,6 +55,7 @@ app.use("/api/lobby", createLobby(pool))
 app.use("/api/team", createTeam(pool))
 app.use("/api/team", addUserToTeam(pool))
 app.use("/api/lobby", addUser(pool))
+app.use("/api/lobby", removeUser(pool))
 
 // app.use((req, res, next) => {
 //     const keyUsed = req.body.key;
