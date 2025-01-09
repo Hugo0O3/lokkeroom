@@ -109,23 +109,119 @@ app.get("/api/users", jwtToken, async (req, res) => {
         const data = await connection.query(`
            select 
                 l.id as lobby_id,
-                l.name as lobby_name,
-                u.id as user_id,
-                u.name as user_name
+                l.name as lobby_name
             from 
                 junction_users_lobbies j
             join 
                 lobbies l on l.id = j.lobby_id
-            join 
-                users u on u.id = j.user_id
-            order by 
-                l.id, j.id;
+            where
+                j.user_id = ? and j.isAdmin = 'true'
         `, [adminId]);
-        return res.status(200).send(data)
+
+        if (data.length === 0) {
+            return res.status(403).json({ error: "Vous ne pouvez pas effectuer cette action car vous n'êtes pas admin d'un lobby." })
+        }
+
+        const lobbyId = data.map(lobby => lobby.lobby_id);
+
+        const dataUsers = await connection.query(`
+            select
+                u.id AS user_id,
+                u.name as user_name,
+                j.lobby_id as lobby_id
+            from 
+                junction_users_lobbies j
+            join 
+                users u ON u.id = j.user_id
+            where 
+                j.lobby_id in (?)
+            order by 
+                u.name ASC
+            `, [lobbyId])
+
+        return res.status(200).send(dataUsers)
     } catch (err) {
         throw err;
     } finally {
         if (connection) connection.release();
+    }
+})
+
+app.get("/api/users/:userId", jwtToken, async (req, res) => {
+    const userID = req.params.userId
+    const userIdConnected = req.user.id
+    let connection
+
+    try {
+        connection = await pool.getConnection()
+
+        const isAdminOfTeam = await connection.query(`
+            select
+                t.id as team_id,
+                t.name as team_name
+            from 
+                junction_users_teams j
+            join 
+                teams t on t.id = j.team_id
+            where
+                j.user_id = ? and j.isadmin = 'true'
+        `, [userIdConnected])
+
+        if (isAdminOfTeam.length > 0) {
+            const user = await connection.query(`
+                select 
+                    u.id as user_id,
+                    u.name as user_name,
+                    j.lobby_id as lobby_id,
+                    l.name as lobby_name
+                from 
+                    junction_users_lobbies j
+                join 
+                    users u on u.id = j.user_id
+                join 
+                    lobbies l on l.id = j.lobby_id
+                where 
+                    u.id = ? 
+            `, [userID])
+
+            if (user.length === 0) {
+                return res.status(404).send({ error: "Utilisateur non trouvé ou pas dans un lobby." })
+            }
+
+            return res.status(200).send(user)
+        }
+
+        const userSameLobby = await connection.query(`
+            select 
+                u.id as user_id,
+                u.name as user_name,
+                j.lobby_id as lobby_id,
+                l.name as lobby_name
+            from 
+                junction_users_lobbies j
+            join 
+                users u on u.id = j.user_id
+            join 
+                lobbies l on l.id = j.lobby_id
+            where 
+                u.id = ? and j.lobby_id in (
+                    select lobby_id 
+                    from junction_users_lobbies
+                    where user_id = ?
+                )
+        `, [userID, userIdConnected])
+
+        if (userSameLobby.length === 0) {
+            return res.status(403).send({ error: "Action impossible. L'utilisateur n'est pas dans le même lobby." })
+        }
+
+        return res.status(200).send(userSameLobby)
+
+    } catch (err) {
+        console.error("Erreur lors de l'exécution de la requête:", err)
+        return res.status(500).send({ error: "Erreur interne du serveur." })
+    } finally {
+        if (connection) connection.release()
     }
 })
 
