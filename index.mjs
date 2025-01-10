@@ -7,6 +7,7 @@ import register from './register.js';
 import login from './login.js';
 import { messagePosted, createLobby, addUser, removeUser, editMessage } from './lobby.js';
 import { createTeam, addUserToTeam } from './teams.js'
+import { deleteMessage } from './message.js';
 import path from 'path';
 
 dotenv.config();
@@ -56,6 +57,7 @@ app.use("/api/team", addUserToTeam(pool))
 app.use("/api/lobby", addUser(pool))
 app.use("/api/lobby", removeUser(pool))
 app.use("/api/lobby", editMessage(pool))
+app.use("/api/messages", deleteMessage(pool))
 
 // app.use((req, res, next) => {
 //     const keyUsed = req.body.key;
