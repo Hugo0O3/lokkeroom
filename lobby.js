@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { query } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import * as dotenv from 'dotenv';
@@ -50,16 +50,49 @@ export const messagePosted = (pool) => {
 export const editMessage = (pool) => {
     const router = express.Router()
 
-    router.post("/:messageId", jwtToken, async (req, res) => {
+    router.patch("/:messageId", jwtToken, async (req, res) => {
         const { message } = req.body
-        const messageId = req.params.id;
+        const messageId = req.params.messageId;
         const userId = req.user.id
         let connection;
+
+        if (!message) {
+            return res.status(400).send({ error: 'Le message est nécessaire.' })
+        }
+
         try {
             connection = await pool.getConnection();
 
-            await connection.query(`insert into messages (message, users_id, lobby_id) values (?, ?, ?)`, [message, userId, lobbyId])
-            return res.status(200).send({ message: "Le message a été posté." })
+            const [messageInfos] = await connection.query(`
+                select 
+                    m.users_id,
+                    l.id as lobby_id,
+                    j.isAdmin
+                from 
+                    messages m
+                join 
+                    lobbies l on l.id = m.lobby_id
+                left join 
+                    junction_users_lobbies j on j.user_id = ? and j.lobby_id = l.id
+                where 
+                    m.id = ?
+                `, [userId, messageId])
+
+            if (!messageInfos) {
+                return res.status(403).send({ error: "Message non trouvé." })
+            }
+
+            if (!(messageInfos.users_id === userId || messageInfos.isAdmin === true)) {
+                return res.status(403).send({ error: "Vous ne pouvez pas modifier ce message." })
+            }
+
+            await connection.query(`
+                update messages
+                set message = ?
+                where id = ?
+                `, [message, messageId])
+
+            return res.status(200).send({ message: "Le message a été modifié avec succès." })
         } catch (err) {
             throw err;
         } finally {
